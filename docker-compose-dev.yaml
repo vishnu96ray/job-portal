@@ -1,0 +1,18 @@
+version: '3.9'
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    volumes:
+      - /data/mongo:/data/db
+    ports:
+      - 27017:27017
+
+  redisdb:
+    image: redis:latest
+    container_name: redisdb
+    volumes:
+      - /data/redis:/data
+    restart: always
+    ports:
+      - '6379:6379'
