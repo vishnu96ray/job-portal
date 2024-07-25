@@ -152,7 +152,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def is_valid_email(email: str) -> bool:
-    pat = "^[a-zA-Z0-9-_]+@[a-zA-Z0-9]+\.[a-z]{1,3}$"  # noqa
+    pat = "^[a-zA-Z0-9-_]+@[a-zA-Z0-9]+\.[a-z]{1,3}$" 
     if re.match(pat, email):
         return True
     return False
@@ -196,24 +196,17 @@ class TokenManager:
                 detail="x-auth-token header missing",
             )
         try:
-            payload = jwt.decode(x_auth_token,
-                                 SECRET_KEY,
-                                 algorithms=[ALGORITHM])
-            print(payload)
+            payload = jwt.decode(
+                x_auth_token,
+                SECRET_KEY,
+                algorithms=[ALGORITHM]
+                )
             username: str = payload.get("sub")
             if username is None:
-                raise HTTPException(
+                raise UserAuthenticationError(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid x_auth_token",
                 )
-            # Check if token exists in the database
-            # host = request.client.host
-            # key = f'user-token-{user.username}-{host}'
-            # value = access_token
-            # _redis = smtp.RedisClient()
-
-            # host = request.client.host if request else 'unknown'
-            # print(host)
             key = f'user-token-{username}-{x_auth_token}'
             redis_client = smtp.RedisClient()
             # check token on redis server 
@@ -224,17 +217,12 @@ class TokenManager:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token is not valid or not available in Redis",
             )
-            # token_in_db = Token.find_one(Token.token == x_auth_token, Token.active == True)
-            # if token_in_db is None:
-            #     raise HTTPException(
-            #         status_code=status.HTTP_401_UNAUTHORIZED,
-            #         detail="Token is not valid and not available",
-            #     )
-            
             return user.TokenData(username=username)
         except JWTError as e:
-            raise AuthenticationError(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail=f"{e}")
+            raise UserAuthenticationError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"{e}"
+                )
 
     @staticmethod
     def get_current_user(token: str = Depends(Header(None))):
