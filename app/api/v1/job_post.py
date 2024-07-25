@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Query, File, UploadFile
+from fastapi import APIRouter, HTTPException, status, Query, File, UploadFile, Request
 from app.model.job_service import Resume
 from app.schemas.job import JobCreate, JobOut, ResumeOut
 from app.conf import job_crud
@@ -20,7 +20,7 @@ class CustomHTTPException(HTTPException):
         summary="Create a Job",
         response_model=JobCreate,
     )
-async def create_job_endpoint(job: JobCreate):
+async def create_job_endpoint(job: JobCreate, request: Request):
     try:
         created_job = await job_crud.create_job(job)
         return created_job
@@ -33,7 +33,7 @@ async def create_job_endpoint(job: JobCreate):
         tags=["Job"],
         summary="Get Job endpoint",
 )
-async def get_job_endpoint(job_id: str = Query(...)):
+async def get_job_endpoint(request: Request, job_id: str = Query(...)):
     job = await job_crud.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")

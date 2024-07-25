@@ -2,15 +2,20 @@ import re
 from datetime import datetime, timedelta
 from typing import Optional
 
+from starlette.authentication import (
+    AuthCredentials, AuthenticationBackend, AuthenticationError, SimpleUser
+)
 import aiohttp
 import async_timeout
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from app.api.error import UserAuthenticationError
 
-from app.model.user import UserDocument
+from app.model.user import UserDocument, Token
 from app.schemas import user
+from app.conf import smtp
 
 
 # def create_url_from_register_service(service: RegisterService,
@@ -178,13 +183,13 @@ class TokenManager:
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=30)
+            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
         return encoded_jwt
 
     @staticmethod
-    def decode_access_token(x_auth_token: str = Header(None)):
+    def decode_access_token(x_auth_token: str = Header(None), request: Request = None):
         if x_auth_token is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -194,22 +199,56 @@ class TokenManager:
             payload = jwt.decode(x_auth_token,
                                  SECRET_KEY,
                                  algorithms=[ALGORITHM])
+            print(payload)
             username: str = payload.get("sub")
             if username is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid x_auth_token",
                 )
+            # Check if token exists in the database
+            # host = request.client.host
+            # key = f'user-token-{user.username}-{host}'
+            # value = access_token
+            # _redis = smtp.RedisClient()
+
+            # host = request.client.host if request else 'unknown'
+            # print(host)
+            key = f'user-token-{username}-{x_auth_token}'
+            redis_client = smtp.RedisClient()
+            # check token on redis server 
+            token_in_redis = redis_client.get_key(key=key)
+
+            if not token_in_redis or token_in_redis.decode() != x_auth_token:
+                raise UserAuthenticationError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token is not valid or not available in Redis",
+            )
+            # token_in_db = Token.find_one(Token.token == x_auth_token, Token.active == True)
+            # if token_in_db is None:
+            #     raise HTTPException(
+            #         status_code=status.HTTP_401_UNAUTHORIZED,
+            #         detail="Token is not valid and not available",
+            #     )
+            
             return user.TokenData(username=username)
-        except JWTError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail="Invalid x_auth_token")
+        except JWTError as e:
+            raise AuthenticationError(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail=f"{e}")
 
     @staticmethod
     def get_current_user(token: str = Depends(Header(None))):
         token_data = TokenManager.decode_access_token(token)
-        user = UserDocument.get(token_data.user)
-        if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                detail="Invalid token")
-        return user
+        user_in_db = UserDocument.find_one(UserDocument.username == token_data.username)
+        if user_in_db is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+            )
+        return user_in_db
+    
+        # user = UserDocument.get(token_data.user)
+        # if user is None:
+        #     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+        #                         detail="Invalid token")
+        # return user
