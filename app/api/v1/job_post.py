@@ -47,6 +47,7 @@ async def get_job_endpoint(request: Request, job_id: str = Query(...)):
         response_model=JobOut
 )
 async def update_job_endpoint(
+    request: Request,
     job: JobCreate,
     job_id: str = Query(...)
     ):
@@ -61,7 +62,7 @@ async def update_job_endpoint(
         tags=["Job"],
         summary="Delete Job",
 )
-async def delete_job_endpoint(job_id: str = Query(...)):
+async def delete_job_endpoint(request: Request, job_id: str = Query(...)):
     if not await job_crud.delete_job(job_id):
         raise HTTPException(status_code=404, detail="Job not found")
     return {"msg": "Job deleted"}
@@ -72,7 +73,7 @@ async def delete_job_endpoint(job_id: str = Query(...)):
         tags=["Job"],
         summary="Filter Jobs by Status"
 )
-async def filter_jobs_by_status(status: str = Query(..., description="Filter jobs by status (active, closed, draft)")):
+async def filter_jobs_by_status(request: Request, status: str = Query(..., description="Filter jobs by status (active, closed, draft)")):
     jobs = await job_crud.get_jobs_by_status(status)
     if not jobs:
         raise HTTPException(status_code=404, detail="No jobs found with the given status")
@@ -86,6 +87,7 @@ async def filter_jobs_by_status(status: str = Query(..., description="Filter job
         response_model=ResumeOut
 )
 async def upload_resume_endpoint(
+    request: Request,
     job_id: str = Query(...),
     file: UploadFile = File(...)
     ):
@@ -108,7 +110,7 @@ async def upload_resume_endpoint(
         tags=["Job"],
         summary="Get Job View"
 )
-async def get_job_views_endpoint(job_id: str = Query(...)):
+async def get_job_views_endpoint(request: Request, job_id: str = Query(...)):
     views = await job_crud.get_job_views(job_id)
     if views is None:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -119,7 +121,7 @@ async def get_job_views_endpoint(job_id: str = Query(...)):
         tags=["Job"],
         summary="Apply for Job"
 )
-async def job_apply_endpoint(job_id: str = Query(...)):
+async def job_apply_endpoint(request: Request, job_id: str = Query(...)):
     success = await job_crud.apply_for_job(job_id)
     if not success:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -133,6 +135,7 @@ async def job_apply_endpoint(job_id: str = Query(...)):
     # response_model=List[JobOut],
 )
 async def global_filter_endpoint(
+    request: Request,
     title: Optional[str] = Query(None),
     company: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
