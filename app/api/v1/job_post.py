@@ -34,11 +34,13 @@ async def create_job_endpoint(job: JobCreate, request: Request):
         summary="Get Job endpoint",
 )
 async def get_job_endpoint(request: Request, job_id: str = Query(...)):
-    job = await job_crud.get_job(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return job
-
+    try:
+        job = await job_crud.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return job
+    except Exception as e:
+        raise CustomHTTPException(status_code=400, detail=str(e))
 
 @router.patch(
         "",
@@ -51,10 +53,13 @@ async def update_job_endpoint(
     job: JobCreate,
     job_id: str = Query(...)
     ):
-    updated_job = await job_crud.update_job(job_id, job)
-    if not updated_job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return updated_job
+    try:
+        updated_job = await job_crud.update_job(job_id, job)
+        if not updated_job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return updated_job
+    except Exception as e:
+        raise CustomHTTPException(status_code=400, detail=str(e))
 
 
 @router.delete(
@@ -63,9 +68,12 @@ async def update_job_endpoint(
         summary="Delete Job",
 )
 async def delete_job_endpoint(request: Request, job_id: str = Query(...)):
-    if not await job_crud.delete_job(job_id):
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"msg": "Job deleted"}
+    try:
+        if not await job_crud.delete_job(job_id):
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {"msg": "Job deleted"}
+    except Exception as e:
+        raise CustomHTTPException(status_code=400, detail=str(e))
 
 
 @router.get(
@@ -73,11 +81,16 @@ async def delete_job_endpoint(request: Request, job_id: str = Query(...)):
         tags=["Job"],
         summary="Filter Jobs by Status"
 )
-async def filter_jobs_by_status(request: Request, status: str = Query(..., description="Filter jobs by status (active, closed, draft)")):
-    jobs = await job_crud.get_jobs_by_status(status)
-    if not jobs:
-        raise HTTPException(status_code=404, detail="No jobs found with the given status")
-    return jobs
+async def filter_jobs_by_status(
+    request: Request,
+    status: str = Query(..., description="Filter jobs by status (active, closed, draft)")):
+    try:
+        jobs = await job_crud.get_jobs_by_status(status)
+        if not jobs:
+            raise HTTPException(status_code=404, detail="No jobs found with the given status")
+        return jobs
+    except Exception as e:
+        raise CustomHTTPException(status_code=400, detail=str(e))
 
 @router.post(
         "/upload_resume",
@@ -91,18 +104,20 @@ async def upload_resume_endpoint(
     job_id: str = Query(...),
     file: UploadFile = File(...)
     ):
-    
-    if not job_crud.is_valid_file_extension(file.filename):
-        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
-    
-    file_location = f"resumes/{job_id}-{file.filename}"
-    os.makedirs(os.path.dirname(file_location), exist_ok=True)
-    
-    await job_crud.save_file(file, file_location)
-    
-    resume = Resume(job_id=job_id, filename=file.filename, path=file_location)
-    await resume.insert()
-    return ResumeOut(job_id=resume.job_id, filename=resume.filename, path=resume.path)
+    try:
+        if not job_crud.is_valid_file_extension(file.filename):
+            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+        
+        file_location = f"resumes/{job_id}-{file.filename}"
+        os.makedirs(os.path.dirname(file_location), exist_ok=True)
+        
+        await job_crud.save_file(file, file_location)
+        
+        resume = Resume(job_id=job_id, filename=file.filename, path=file_location)
+        await resume.insert()
+        return ResumeOut(job_id=resume.job_id, filename=resume.filename, path=resume.path)
+    except Exception as e:
+        raise CustomHTTPException(status_code=400, detail=str(e))
 
 
 @router.get(
@@ -111,10 +126,13 @@ async def upload_resume_endpoint(
         summary="Get Job View"
 )
 async def get_job_views_endpoint(request: Request, job_id: str = Query(...)):
-    views = await job_crud.get_job_views(job_id)
-    if views is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"job_id": job_id, "views": views}
+    try:
+        views = await job_crud.get_job_views(job_id)
+        if views is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {"job_id": job_id, "views": views}
+    except Exception as e:
+        raise CustomHTTPException(status_code=400, detail=str(e))
 
 @router.get(
         "/apply",
@@ -122,11 +140,13 @@ async def get_job_views_endpoint(request: Request, job_id: str = Query(...)):
         summary="Apply for Job"
 )
 async def job_apply_endpoint(request: Request, job_id: str = Query(...)):
-    success = await job_crud.apply_for_job(job_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"msg": "Successfully applied for the job"}
-
+    try:
+        success = await job_crud.apply_for_job(job_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {"msg": "Successfully applied for the job"}
+    except Exception as e:
+        raise CustomHTTPException(status_code=400, detail=str(e))
 
 @router.get(
     "/global/filter",
@@ -142,19 +162,21 @@ async def global_filter_endpoint(
     job_experience: Optional[str] = Query(None),
     salary: Optional[str] = Query(None),
     date_of_jobpost_from: Optional[str] = Query(None, description="Filter jobs posted from this date (YYYY-MM-DD)"),
-    date_of_jobpost_to: Optional[str] = Query(None, description="Filter jobs posted to this date (YYYY-MM-DD)")
-):
-    filter_params = {
-        "title": title,
-        "company": company,
-        "location": location,
-        "job_experience": job_experience,
-        "salary": salary,
-        "date_of_jobpost_from": date_of_jobpost_from,
-        "date_of_jobpost_to": date_of_jobpost_to
-    
-    }
-    jobs = await job_crud.get_filtered_jobs(filter_params)
-    if not jobs:
-        raise HTTPException(status_code=404, detail="No jobs found matching the criteria")
-    return jobs
+    date_of_jobpost_to: Optional[str] = Query(None, description="Filter jobs posted to this date (YYYY-MM-DD)")):
+    try:
+        filter_params = {
+            "title": title,
+            "company": company,
+            "location": location,
+            "job_experience": job_experience,
+            "salary": salary,
+            "date_of_jobpost_from": date_of_jobpost_from,
+            "date_of_jobpost_to": date_of_jobpost_to
+        
+        }
+        jobs = await job_crud.get_filtered_jobs(filter_params)
+        if not jobs:
+            raise HTTPException(status_code=404, detail="No jobs found matching the criteria")
+        return jobs
+    except Exception as e:
+        raise CustomHTTPException(status_code=400, detail=str(e))
