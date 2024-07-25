@@ -455,8 +455,8 @@ async def login_user(
     access_token = TokenManager.create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    host = request.client.host
-    key = f'user-token-{user.username}-{host}'
+    host = request.client.host 
+    key = f'user-token-{user.username}-{access_token}'
     value = access_token
     _redis = smtp.RedisClient()
     _redis.set_with_ttl(key, value, 1800)

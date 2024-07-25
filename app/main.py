@@ -10,8 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.authentication import AuthenticationMiddleware
+from starlette.authentication import AuthenticationError
 
-from app.api.error import HTTPException, http_exception_error
+from app.api.error import HTTPException, http_exception_error, UserAuthenticationError, auth_user_error
 from app.api.middleware.auth import BasicAuthBackend
 
 
@@ -61,6 +62,8 @@ def mount():
 
 def add_except_handler():
     app.add_exception_handler(HTTPException, http_exception_error)
+    app.add_exception_handler(UserAuthenticationError,
+                                     handler=auth_user_error)
 
 
 add_router()
@@ -75,7 +78,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# app.add_middleware(RouterLoggingMiddleware, logger=logging.getLogger(__name__))
-
-app.add_middleware(AuthenticationMiddleware, backend=BasicAuthBackend())
+app.add_middleware(AuthenticationMiddleware, backend=BasicAuthBackend(), on_error=auth_user_error)
